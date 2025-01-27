@@ -2,6 +2,10 @@
 Fazer um programa (em qualquer linguagem) que faça a leitura de uma imagem fat e apresente na tela:
 
     O número de FATs;
+    Tambem é exibido:
+        Setores por cluster;
+        Setores por fat;
+        Tamanho do setor.
     A posição inicial de cada FAT no disco;
     A posição inicial do setor de diretório raiz;
     A posição inicial da área de dados;
@@ -61,6 +65,10 @@ void print_fat_positions(const BootSector &bpb) {
     uint32_t fat_start = bpb.reserved_sectors;
 
     cout << "Número de FATs: " << static_cast<int>(bpb.num_fats) << endl;
+    cout << "Setores por cluster: " << static_cast<int>(bpb.sectors_per_cluster) << endl;
+    cout << "Setores por FAT: " << sectors_per_fat << endl;
+    cout << "Tamanho do setor: " << bpb.bytes_per_sector << " bytes" << endl;
+
     cout << "Posição inicial de cada FAT no disco:" << endl;
     for (uint8_t i = 0; i < bpb.num_fats; ++i) {
         cout << "FAT " << static_cast<int>(i + 1) << ": setor 0x" << hex << (fat_start + i * sectors_per_fat) << endl;
@@ -92,10 +100,10 @@ void print_root_directory(const BootSector &bpb, ifstream &file) {
         uint8_t first_byte = root_dir[entry_offset];
 
         if (first_byte == 0x00) {
-            break; // Entrada vazia
+            break; 
         }
         if (first_byte == 0xE5) {
-            continue; // Entrada apagada
+            continue;
         }
 
         char name[9] = {0};
@@ -103,15 +111,17 @@ void print_root_directory(const BootSector &bpb, ifstream &file) {
         memcpy(name, &root_dir[entry_offset], 8);
         memcpy(ext, &root_dir[entry_offset + 8], 3);
         uint8_t attr = root_dir[entry_offset + 11];
-        uint16_t first_cluster;
-        memcpy(&first_cluster, &root_dir[entry_offset + 26], sizeof(first_cluster));
+        uint16_t low_cluster;
+        memcpy(&low_cluster, &root_dir[entry_offset + 26], sizeof(low_cluster));
         uint32_t size;
         memcpy(&size, &root_dir[entry_offset + 28], sizeof(size));
+
+        uint32_t first_cluster = low_cluster; 
 
         if (attr & 0x10) {
             cout << "[DIR] " << name << endl;
         } else {
-            cout << "[FILE] " << name << "." << ext << " - Primeiro cluster: 0x" << hex << first_cluster << ", Tamanho: " << size << " bytes" << endl;
+            cout << "[FILE] " << name << "." << ext << " - Primeiro cluster: " << dec << first_cluster << ", Tamanho: " << dec << size << " bytes" << endl;
         }
     }
 }
@@ -132,8 +142,8 @@ void read_fat_image(const string &image_path) {
 }
 
 int main() {
-    // Substitua pelo caminho da imagem FAT
-    string image_path = "imagem_fat.img";
+    string image_path = "testfat.img";
     read_fat_image(image_path);
     return 0;
 }
+
