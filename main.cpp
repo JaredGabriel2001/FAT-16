@@ -1,10 +1,10 @@
 /*
 Fazer um programa (em qualquer linguagem) que faça a leitura de uma imagem fat e apresente na tela:
 
-    O número de FATs
-    A posição inicial de cada FAT no disco
-    A posição inicial do setor de diretório raiz
-    A posição inicial da área de dados
+    O número de FATs;
+    A posição inicial de cada FAT no disco;
+    A posição inicial do setor de diretório raiz;
+    A posição inicial da área de dados;
     Os arquivos e diretórios armazenados na raiz (apenas as entradas 8.3), com os seus respectivos nomes, primeiro cluster e tamanho.
 
 Exercício desafio: apresentar os clusters ocupados por um arquivo, e seu conteúdo
@@ -14,6 +14,7 @@ Exercício desafio: apresentar os clusters ocupados por um arquivo, e seu conte�
 #include <vector>
 #include <cstdint>
 #include <cstring>
+#include <iomanip>
 
 using namespace std;
 
@@ -33,13 +34,7 @@ struct BootSector {
     uint32_t sectors_per_fat_32;
 };
 
-void read_fat_image(const string &image_path) {
-    ifstream file(image_path, ios::binary);
-    if (!file) {
-        cerr << "Erro ao abrir o arquivo: " << image_path << endl;
-        return;
-    }
-
+BootSector read_boot_sector(ifstream &file) {
     uint8_t boot_sector[512];
     file.read(reinterpret_cast<char *>(boot_sector), 512);
 
@@ -58,21 +53,34 @@ void read_fat_image(const string &image_path) {
     memcpy(&bpb.total_sectors_32, &boot_sector[32], sizeof(bpb.total_sectors_32));
     memcpy(&bpb.sectors_per_fat_32, &boot_sector[36], sizeof(bpb.sectors_per_fat_32));
 
-    uint32_t total_sectors = bpb.total_sectors_16 ? bpb.total_sectors_16 : bpb.total_sectors_32;
+    return bpb;
+}
+
+void print_fat_positions(const BootSector &bpb) {
     uint32_t sectors_per_fat = bpb.sectors_per_fat_16 ? bpb.sectors_per_fat_16 : bpb.sectors_per_fat_32;
     uint32_t fat_start = bpb.reserved_sectors;
-    uint32_t root_dir_start = fat_start + bpb.num_fats * sectors_per_fat;
-    uint32_t root_dir_sectors = ((bpb.max_root_entries * 32) + (bpb.bytes_per_sector - 1)) / bpb.bytes_per_sector;
-    uint32_t data_area_start = root_dir_start + root_dir_sectors;
 
     cout << "Número de FATs: " << static_cast<int>(bpb.num_fats) << endl;
     cout << "Posição inicial de cada FAT no disco:" << endl;
     for (uint8_t i = 0; i < bpb.num_fats; ++i) {
-        cout << "FAT " << static_cast<int>(i + 1) << ": setor " << fat_start + i * sectors_per_fat << endl;
+        cout << "FAT " << static_cast<int>(i + 1) << ": setor 0x" << hex << (fat_start + i * sectors_per_fat) << endl;
     }
+}
 
-    cout << "Posição inicial do setor de diretório raiz: " << root_dir_start << endl;
-    cout << "Posição inicial da área de dados: " << data_area_start << endl;
+void print_directory_positions(const BootSector &bpb) {
+    uint32_t sectors_per_fat = bpb.sectors_per_fat_16 ? bpb.sectors_per_fat_16 : bpb.sectors_per_fat_32;
+    uint32_t root_dir_start = bpb.reserved_sectors + bpb.num_fats * sectors_per_fat;
+    uint32_t root_dir_sectors = ((bpb.max_root_entries * 32) + (bpb.bytes_per_sector - 1)) / bpb.bytes_per_sector;
+    uint32_t data_area_start = root_dir_start + root_dir_sectors;
+
+    cout << "Posição inicial do setor de diretório raiz: 0x" << hex << root_dir_start << endl;
+    cout << "Posição inicial da área de dados: 0x" << hex << data_area_start << endl;
+}
+
+void print_root_directory(const BootSector &bpb, ifstream &file) {
+    uint32_t sectors_per_fat = bpb.sectors_per_fat_16 ? bpb.sectors_per_fat_16 : bpb.sectors_per_fat_32;
+    uint32_t root_dir_start = bpb.reserved_sectors + bpb.num_fats * sectors_per_fat;
+    uint32_t root_dir_sectors = ((bpb.max_root_entries * 32) + (bpb.bytes_per_sector - 1)) / bpb.bytes_per_sector;
 
     file.seekg(root_dir_start * bpb.bytes_per_sector);
     vector<uint8_t> root_dir(root_dir_sectors * bpb.bytes_per_sector);
@@ -84,10 +92,10 @@ void read_fat_image(const string &image_path) {
         uint8_t first_byte = root_dir[entry_offset];
 
         if (first_byte == 0x00) {
-            break; 
+            break; // Entrada vazia
         }
         if (first_byte == 0xE5) {
-            continue; 
+            continue; // Entrada apagada
         }
 
         char name[9] = {0};
@@ -103,15 +111,29 @@ void read_fat_image(const string &image_path) {
         if (attr & 0x10) {
             cout << "[DIR] " << name << endl;
         } else {
-            cout << "[FILE] " << name << "." << ext << " - Primeiro cluster: " << first_cluster << ", Tamanho: " << size << " bytes" << endl;
+            cout << "[FILE] " << name << "." << ext << " - Primeiro cluster: 0x" << hex << first_cluster << ", Tamanho: " << size << " bytes" << endl;
         }
     }
+}
+
+void read_fat_image(const string &image_path) {
+    ifstream file(image_path, ios::binary);
+    if (!file) {
+        cerr << "Erro ao abrir o arquivo: " << image_path << endl;
+        return;
+    }
+
+    BootSector bpb = read_boot_sector(file);
+    print_fat_positions(bpb);
+    print_directory_positions(bpb);
+    print_root_directory(bpb, file);
 
     file.close();
 }
 
 int main() {
-    string image_path = "testfat.img";
+    // Substitua pelo caminho da imagem FAT
+    string image_path = "imagem_fat.img";
     read_fat_image(image_path);
     return 0;
 }
