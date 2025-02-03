@@ -61,7 +61,7 @@ BootSector read_boot_sector(ifstream &file) {
 }
 
 void print_fat_positions(const BootSector &bpb) {
-    uint32_t sectors_per_fat = bpb.sectors_per_fat_16 ? bpb.sectors_per_fat_16 : bpb.sectors_per_fat_32;
+    uint32_t sectors_per_fat = bpb.sectors_per_fat_16;
     uint32_t fat_start = bpb.reserved_sectors;
 
     cout << "Número de FATs: " << static_cast<int>(bpb.num_fats) << endl;
@@ -76,7 +76,7 @@ void print_fat_positions(const BootSector &bpb) {
 }
 
 void print_directory_positions(const BootSector &bpb) {
-    uint32_t sectors_per_fat = bpb.sectors_per_fat_16 ? bpb.sectors_per_fat_16 : bpb.sectors_per_fat_32;
+    uint32_t sectors_per_fat = bpb.sectors_per_fat_16;
     uint32_t root_dir_start = bpb.reserved_sectors + bpb.num_fats * sectors_per_fat;
     uint32_t root_dir_sectors = ((bpb.max_root_entries * 32) + (bpb.bytes_per_sector - 1)) / bpb.bytes_per_sector;
     uint32_t data_area_start = root_dir_start + root_dir_sectors;
@@ -86,46 +86,46 @@ void print_directory_positions(const BootSector &bpb) {
     printf("\n");
 }
 
-void print_root_directory(const BootSector &bpb, ifstream &file) {
-    uint32_t sectors_per_fat = bpb.sectors_per_fat_16 ? bpb.sectors_per_fat_16 : bpb.sectors_per_fat_32;
-    uint32_t root_dir_start = bpb.reserved_sectors + bpb.num_fats * sectors_per_fat;
-    uint32_t root_dir_sectors = ((bpb.max_root_entries * 32) + (bpb.bytes_per_sector - 1)) / bpb.bytes_per_sector;
+    void print_root_directory(const BootSector &bpb, ifstream &file) {
+        uint32_t sectors_per_fat = bpb.sectors_per_fat_16;
+        uint32_t root_dir_start = bpb.reserved_sectors + bpb.num_fats * sectors_per_fat;
+        uint32_t root_dir_sectors = ((bpb.max_root_entries * 32) + (bpb.bytes_per_sector - 1)) / bpb.bytes_per_sector;
 
-    file.seekg(root_dir_start * bpb.bytes_per_sector);
-    vector<uint8_t> root_dir(root_dir_sectors * bpb.bytes_per_sector);
-    file.read(reinterpret_cast<char *>(root_dir.data()), root_dir.size());
+        file.seekg(root_dir_start * bpb.bytes_per_sector);
+        vector<uint8_t> root_dir(root_dir_sectors * bpb.bytes_per_sector);
+        file.read(reinterpret_cast<char *>(root_dir.data()), root_dir.size());
 
-    cout << "Arquivos e diretórios armazenados na raiz:" << endl;
-    for (size_t i = 0; i < bpb.max_root_entries; ++i) {
-        size_t entry_offset = i * 32;
-        uint8_t first_byte = root_dir[entry_offset];
+        cout << "Arquivos e diretórios armazenados na raiz:" << endl;
+        for (size_t i = 0; i < bpb.max_root_entries; ++i) {
+            size_t entry_offset = i * 32;
+            uint8_t first_byte = root_dir[entry_offset];
 
-        if (first_byte == 0x00) {
-            break; 
-        }
-        if (first_byte == 0xE5) {
-            continue;
-        }
+            if (first_byte == 0x00) {
+                break; 
+            }
+            if (first_byte == 0xE5) {
+                continue;
+            }
 
-        char name[9] = {0};
-        char ext[4] = {0};
-        memcpy(name, &root_dir[entry_offset], 8);
-        memcpy(ext, &root_dir[entry_offset + 8], 3);
-        uint8_t attr = root_dir[entry_offset + 11];
-        uint16_t low_cluster;
-        memcpy(&low_cluster, &root_dir[entry_offset + 26], sizeof(low_cluster));
-        uint32_t size;
-        memcpy(&size, &root_dir[entry_offset + 28], sizeof(size));
+            char name[9] = {0};
+            char ext[4] = {0};
+            memcpy(name, &root_dir[entry_offset], 8);
+            memcpy(ext, &root_dir[entry_offset + 8], 3);
+            uint8_t attr = root_dir[entry_offset + 11];
+            uint16_t low_cluster;
+            memcpy(&low_cluster, &root_dir[entry_offset + 26], sizeof(low_cluster));
+            uint32_t size;
+            memcpy(&size, &root_dir[entry_offset + 28], sizeof(size));
 
-        uint32_t first_cluster = low_cluster; 
+            uint32_t first_cluster = low_cluster; 
 
-        if (attr & 0x10) {
-            cout << "[DIR] " << name << endl;
-        } else {
-            cout << "[FILE] " << name << "." << ext << " - Primeiro cluster: " << dec << first_cluster << ", Tamanho: " << dec << size << " bytes" << endl;
+            if (attr & 0x10) {
+                cout << "[DIR] " << name << endl;
+            } else {
+                cout << "[FILE] " << name << "." << ext << " - Primeiro cluster: " << dec << first_cluster << ", Tamanho: " << dec << size << " bytes" << endl;
+            }
         }
     }
-}
 
 void read_fat_image(const string &image_path) {
     ifstream file(image_path, ios::binary);
