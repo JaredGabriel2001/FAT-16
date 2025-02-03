@@ -54,8 +54,6 @@ BootSector read_boot_sector(ifstream &file) {
     memcpy(&bpb.sectors_per_track, &boot_sector[24], sizeof(bpb.sectors_per_track));
     memcpy(&bpb.num_heads, &boot_sector[26], sizeof(bpb.num_heads));
     memcpy(&bpb.hidden_sectors, &boot_sector[28], sizeof(bpb.hidden_sectors));
-    memcpy(&bpb.total_sectors_32, &boot_sector[32], sizeof(bpb.total_sectors_32));
-    memcpy(&bpb.sectors_per_fat_32, &boot_sector[36], sizeof(bpb.sectors_per_fat_32));
 
     return bpb;
 }
