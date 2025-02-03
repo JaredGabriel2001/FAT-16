@@ -83,6 +83,7 @@ void print_directory_positions(const BootSector &bpb) {
 
     cout << "Posição inicial do setor de diretório raiz: 0x" << hex << root_dir_start << endl;
     cout << "Posição inicial da área de dados: 0x" << hex << data_area_start << endl;
+    printf("\n");
 }
 
 void print_root_directory(const BootSector &bpb, ifstream &file) {
